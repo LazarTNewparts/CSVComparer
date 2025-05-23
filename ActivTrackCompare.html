@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Column Comparer</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Roboto', 'Inter', sans-serif; 
+            background-color: #f4f7f9; 
+        }
+        #resultsDisplayArea::-webkit-scrollbar {
+            width: 8px;
+        }
+        #resultsDisplayArea::-webkit-scrollbar-track {
+            background: #e0e0e0; 
+            border-radius: 10px;
+        }
+        #resultsDisplayArea::-webkit-scrollbar-thumb {
+            background: #90a4ae; 
+            border-radius: 10px;
+        }
+        #resultsDisplayArea::-webkit-scrollbar-thumb:hover {
+            background: #78909c;
+        }
+        .input-label {
+            @apply block text-sm font-medium text-gray-700 mb-1;
+        }
+        .text-input {
+            @apply mt-1 block w-full px-3 py-2.5 bg-white border border-gray-300 rounded-md shadow-sm placeholder-gray-400 
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm;
+        }
+        .btn { /* Base button style */
+            @apply inline-flex justify-center py-3 px-8 border border-transparent shadow-lg text-base font-medium rounded-md text-white
+                   focus:outline-none focus:ring-2 focus:ring-offset-2 transition-all duration-150 ease-in-out transform hover:scale-105;
+        }
+        .btn-primary { /* Compare button */
+            @apply bg-blue-600 hover:bg-blue-700 focus:ring-blue-500;
+        }
+        .btn-secondary { /* Download button */
+            @apply bg-green-600 hover:bg-green-700 focus:ring-green-500;
+        }
+        .message-box {
+            @apply p-4 mb-4 text-sm rounded-lg border;
+        }
+        .message-error {
+            @apply bg-red-50 text-red-700 border-red-300;
+        }
+        .message-success {
+            @apply bg-green-50 text-green-700 border-green-300;
+        }
+        .message-info {
+            @apply bg-blue-50 text-blue-700 border-blue-300;
+        }
+        .card {
+            @apply bg-white p-6 sm:p-8 rounded-xl shadow-xl w-full max-w-2xl; /* Increased shadow */
+        }
+        .file-input-custom {
+            @apply mt-1 block w-full text-sm text-gray-700 bg-white rounded-md border border-gray-300 cursor-pointer
+                   file:mr-4 file:py-2.5 file:px-4
+                   file:rounded-l-md file:border-0
+                   file:text-sm file:font-semibold
+                   file:bg-blue-50 file:text-blue-700
+                   hover:file:bg-blue-100
+                   focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 shadow-sm;
+        }
+        .logo-error-placeholder { 
+            padding: 10px;
+            border: 1px dashed #cbd5e1; 
+            text-align: center;
+            color: #ef4444; 
+            font-size: 0.875rem; 
+            line-height: 1.25rem; 
+            min-height: 4rem; 
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: auto;
+            margin-right: auto;
+            margin-bottom: 1rem; 
+            background-color: #fef2f2; 
+        }
+        .result-section {
+            @apply mb-6 bg-gray-50 p-4 rounded-lg shadow; /* Added background, padding, shadow to section */
+        }
+        .result-heading {
+            @apply text-xl font-semibold text-blue-700 mb-3 pb-2 border-b-2 border-blue-300; /* Larger, bolder, stronger border */
+        }
+        .result-list {
+            @apply list-none pl-0 space-y-2 text-gray-800; /* Removed disc, more space */
+        }
+        .result-list li {
+            @apply py-2 px-3 rounded-md bg-white border border-gray-200 shadow-sm; /* More distinct list items */
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col items-center justify-center p-4">
+
+    <div class="card">
+        <header class="mb-8 text-center">
+            <img src="https://i.imgur.com/VEkWqPu.png" 
+                 alt="Newparts Logo" class="mx-auto mb-4 block max-w-[238px] h-auto" 
+                 onerror="this.outerHTML = `<div class='logo-error-placeholder'>The logo image from Imgur could not be loaded. <br>Please check the Imgur link or your internet connection.</div>`; console.error('Imgur logo could not be loaded.');">
+            
+            <h1 class="text-3xl sm:text-4xl font-medium text-blue-700">CSV Column Comparer</h1>
+            <p class="text-sm text-gray-500 mt-2">Upload a CSV and compare two columns to find unique entries.</p>
+        </header>
+
+        <div id="messageBox" class="hidden message-box"></div>
+
+        <div class="space-y-6">
+            <div>
+                <label for="csvFile" class="input-label">Upload CSV File:</label>
+                <input type="file" id="csvFile" accept=".csv" class="file-input-custom">
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                <div>
+                    <label for="col1Identifier" class="input-label">First Column (Name or Index):</label>
+                    <input type="text" id="col1Identifier" placeholder="e.g., 'User ID' or 0" class="text-input">
+                </div>
+                <div>
+                    <label for="col2Identifier" class="input-label">Second Column (Name or Index):</label>
+                    <input type="text" id="col2Identifier" placeholder="e.g., 'Email' or 1" class="text-input">
+                </div>
+            </div>
+
+            <div class="mt-8">
+                <button id="compareButton" class="btn btn-primary w-full">
+                    Compare Columns
+                </button>
+            </div>
+        </div>
+
+        <div id="resultsContainer" class="mt-10 pt-6 border-t border-gray-200 hidden">
+            <h2 class="text-2xl font-medium text-blue-600 mb-6 text-center">Comparison Results</h2>
+            <div id="resultsDisplayArea" class="bg-white p-2 sm:p-4 rounded-md max-h-[32rem] overflow-y-auto border border-gray-200">
+                </div>
+            <div class="mt-8 text-center">
+                <button id="downloadCsvButton" class="btn btn-secondary hidden">
+                    Download Results as CSV
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <footer class="text-center text-sm text-gray-600 mt-10 py-4">
+        <p>Created by Lazar Tutulic</p>
+    </footer>
+
+    <script>
+        // DOM Elements
+        const csvFileInput = document.getElementById('csvFile');
+        const col1IdentifierInput = document.getElementById('col1Identifier');
+        const col2IdentifierInput = document.getElementById('col2Identifier');
+        const compareButton = document.getElementById('compareButton');
+        const resultsContainer = document.getElementById('resultsContainer');
+        const resultsDisplayArea = document.getElementById('resultsDisplayArea'); 
+        const downloadCsvButton = document.getElementById('downloadCsvButton');
+        const messageBox = document.getElementById('messageBox');
+
+        let csvDataForDownload = {
+            col1Name: '', // Will store the actual name of the first column from CSV
+            col2Name: '', // Will store the actual name of the second column from CSV
+            uniqueToCol1: [],
+            uniqueToCol2: []
+        };
+
+
+        // Event Listeners
+        compareButton.addEventListener('click', handleCompare);
+        downloadCsvButton.addEventListener('click', handleDownloadCsv);
+
+
+        /**
+         * Displays a message to the user.
+         * @param {string} message - The message to display.
+         * @param {'error' | 'success' | 'info'} type - The type of message.
+         */
+        function showMessage(message, type = 'info') {
+            messageBox.textContent = message;
+            messageBox.className = 'message-box'; // Reset classes
+            if (type === 'error') {
+                messageBox.classList.add('message-error');
+            } else if (type === 'success') {
+                messageBox.classList.add('message-success');
+            } else { // info
+                messageBox.classList.add('message-info');
+            }
+            messageBox.classList.remove('hidden');
+        }
+
+        /**
+         * Hides the message box.
+         */
+        function hideMessage() {
+            messageBox.classList.add('hidden');
+            messageBox.textContent = '';
+        }
+        
+        /**
+         * Parses CSV text into an array of arrays (rows and columns).
+         */
+        function parseCSV(csvText) {
+            const rows = [];
+            let currentRow = [];
+            let inQuotes = false;
+            let currentField = '';
+
+            for (let i = 0; i < csvText.length; i++) {
+                const char = csvText[i];
+                const nextChar = csvText[i+1];
+
+                if (char === '"') {
+                    if (inQuotes && nextChar === '"') { 
+                        currentField += '"';
+                        i++; 
+                    } else {
+                        inQuotes = !inQuotes;
+                    }
+                } else if (char === ',' && !inQuotes) {
+                    currentRow.push(currentField.trim());
+                    currentField = '';
+                } else if ((char === '\n' || char === '\r') && !inQuotes) {
+                    if (i > 0 && csvText[i-1] !== '\n' && csvText[i-1] !== '\r') { 
+                         currentRow.push(currentField.trim());
+                         rows.push(currentRow);
+                         currentRow = [];
+                         currentField = '';
+                    } else if (currentField || currentRow.length > 0) { 
+                         currentRow.push(currentField.trim());
+                         rows.push(currentRow);
+                         currentRow = [];
+                         currentField = '';
+                    }
+                    if (char === '\r' && nextChar === '\n') i++; 
+                } else {
+                    currentField += char;
+                }
+            }
+            if (currentField || currentRow.length > 0) {
+                currentRow.push(currentField.trim());
+                rows.push(currentRow);
+            }
+            return rows.filter(row => row.some(field => field !== ''));
+        }
+
+
+        /**
+         * Gets the 0-based column index from a header row.
+         */
+        function getColumnIndexFromHeader(headerRow, identifier, columnDescription) {
+            if (!headerRow || headerRow.length === 0) {
+                showMessage(`Error: Cannot determine index for ${columnDescription} because CSV header is missing or empty.`, 'error');
+                return null;
+            }
+
+            identifier = identifier.trim();
+            if (/^\d+$/.test(identifier)) { 
+                try {
+                    const idx = parseInt(identifier, 10);
+                    if (idx >= 0 && idx < headerRow.length) {
+                        return idx;
+                    } else {
+                        showMessage(`Error: ${columnDescription} index '${identifier}' is out of range for CSV header (0 to ${headerRow.length - 1}). Header has ${headerRow.length} columns.`, 'error');
+                        return null;
+                    }
+                } catch (e) {
+                    showMessage(`Error: Invalid numeric index '${identifier}' provided for ${columnDescription}.`, 'error');
+                    return null;
+                }
+            } else { 
+                const normalizedIdentifier = identifier.toLowerCase().trim();
+                const idx = headerRow.findIndex(header => header.toLowerCase().trim() === normalizedIdentifier);
+                if (idx !== -1) {
+                    return idx;
+                } else {
+                    showMessage(`Error: ${columnDescription} name '${identifier}' not found in CSV header. Header: [${headerRow.map(h => `'${h}'`).join(', ')}]`, 'error');
+                    return null;
+                }
+            }
+        }
+
+        /**
+         * Extracts all non-empty, stripped string entries from a specific column index,
+         * and converts them to lowercase for case-insensitive comparison.
+         */
+        function extractFilteredColumnEntries(allDataRows, columnIdx) {
+            const entries = [];
+            if (columnIdx === null || columnIdx < 0) return entries; 
+
+            allDataRows.forEach(rowContent => {
+                if (columnIdx < rowContent.length) {
+                    const cellValue = rowContent[columnIdx];
+                    if (cellValue && cellValue.trim()) {
+                        entries.push(cellValue.trim().toLowerCase()); 
+                    }
+                }
+            });
+            return entries;
+        }
+        
+        /**
+         * Escapes a string for CSV output.
+         */
+        function escapeCsvValue(str) {
+            if (str === null || str === undefined) {
+                return '';
+            }
+            str = String(str);
+            if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+                return `"${str.replace(/"/g, '""')}"`;
+            }
+            return str;
+        }
+
+        /**
+         * Handles CSV download.
+         */
+        function handleDownloadCsv() {
+            if (!csvDataForDownload.uniqueToCol1.length && !csvDataForDownload.uniqueToCol2.length) {
+                showMessage('No differences to download.', 'info');
+                return;
+            }
+
+            // Use fixed labels for CSV header if desired, or actual column names
+            const downloadCol1Name = "Sheet Source"; // Fixed label for download
+            const downloadCol2Name = "ActivTrak Source"; // Fixed label for download
+            // Or, to use actual column names from CSV:
+            // const downloadCol1Name = csvDataForDownload.col1Name;
+            // const downloadCol2Name = csvDataForDownload.col2Name;
+
+
+            let csvContent = "Entry,Found Only In Column\n"; 
+
+            csvDataForDownload.uniqueToCol1.forEach(entry => {
+                csvContent += `${escapeCsvValue(entry)},${escapeCsvValue(downloadCol1Name)}\n`;
+            });
+
+            csvDataForDownload.uniqueToCol2.forEach(entry => {
+                csvContent += `${escapeCsvValue(entry)},${escapeCsvValue(downloadCol2Name)}\n`;
+            });
+
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const link = document.createElement("a");
+            if (link.download !== undefined) { 
+                const url = URL.createObjectURL(blob);
+                link.setAttribute("href", url);
+                link.setAttribute("download", "csv_column_differences.csv");
+                link.style.visibility = 'hidden';
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(url);
+            } else {
+                showMessage('CSV download is not supported by your browser.', 'error');
+            }
+        }
+
+
+        /**
+         * Main handler for the compare button click.
+         */
+        async function handleCompare() {
+            hideMessage();
+            resultsContainer.classList.add('hidden');
+            resultsDisplayArea.innerHTML = ''; 
+            downloadCsvButton.classList.add('hidden');
+
+            const file = csvFileInput.files[0];
+            const col1Id = col1IdentifierInput.value.trim(); // This is what user types
+            const col2Id = col2IdentifierInput.value.trim(); // This is what user types
+
+            if (!file) {
+                showMessage('Please select a CSV file.', 'error');
+                return;
+            }
+            if (!col1Id) {
+                showMessage('Please enter an identifier for the first column.', 'error');
+                return;
+            }
+            if (!col2Id) {
+                showMessage('Please enter an identifier for the second column.', 'error');
+                return;
+            }
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                const csvText = event.target.result;
+                try {
+                    const allRows = parseCSV(csvText);
+
+                    if (allRows.length === 0) {
+                        showMessage('Error: CSV file is empty or could not be parsed properly (no rows found).', 'error');
+                        return;
+                    }
+
+                    const header = allRows[0];
+                    const dataRows = allRows.slice(1);
+
+                    if (!header || header.length === 0 || header.every(h => h === '')) {
+                        showMessage('Error: CSV file does not contain a valid header row or header is empty.', 'error');
+                        return;
+                    }
+                    
+                    const col1Idx = getColumnIndexFromHeader(header, col1Id, "First column");
+                    if (col1Idx === null) return; 
+
+                    const col2Idx = getColumnIndexFromHeader(header, col2Id, "Second column");
+                    if (col2Idx === null) return; 
+
+                    if (col1Idx === col2Idx) {
+                        showMessage(`Error: Both identifiers point to the same column ('${header[col1Idx]}'). Please choose two different columns.`, 'error');
+                        return;
+                    }
+
+                    // Store actual column names from CSV for potential use in download
+                    csvDataForDownload.col1Name = header[col1Idx]; 
+                    csvDataForDownload.col2Name = header[col2Idx]; 
+                    
+                    // These are the fixed display names you requested
+                    const displayCol1Name = "Sheet Source";
+                    const displayCol2Name = "ActivTrak Source";
+
+
+                    const col1Entries = extractFilteredColumnEntries(dataRows, col1Idx);
+                    const col2Entries = extractFilteredColumnEntries(dataRows, col2Idx);
+
+
+                    if (col1Entries.length === 0 && col2Entries.length === 0) {
+                        resultsDisplayArea.innerHTML = `<p class="text-center text-gray-500 p-4">--- No Data ---<br>Neither column (as identified by '${col1Id}' and '${col2Id}') contains any non-empty entries to compare.</p>`;
+                        showMessage('Comparison complete. No data found in specified columns.', 'info');
+                        resultsContainer.classList.remove('hidden'); 
+                        return;
+                    }
+                    
+                    const col1EntrySet = new Set(col1Entries);
+                    const col2EntrySet = new Set(col2Entries);
+
+                    csvDataForDownload.uniqueToCol1 = []; 
+                    for (const entry of col1EntrySet) {
+                        if (!col2EntrySet.has(entry)) {
+                            csvDataForDownload.uniqueToCol1.push(entry);
+                        }
+                    }
+                    csvDataForDownload.uniqueToCol1.sort();
+
+
+                    csvDataForDownload.uniqueToCol2 = []; 
+                    for (const entry of col2EntrySet) {
+                        if (!col1EntrySet.has(entry)) {
+                            csvDataForDownload.uniqueToCol2.push(entry);
+                        }
+                    }
+                    csvDataForDownload.uniqueToCol2.sort();
+
+                    let differencesHtml = "";
+                    let discrepanciesFound = false;
+
+                    if (csvDataForDownload.uniqueToCol1.length > 0) {
+                        differencesHtml += `<div class="result-section">`;
+                        differencesHtml += `<h3 class="result-heading">Entries found ONLY in Column '${displayCol1Name}'</h3>`;
+                        differencesHtml += `<ul class="result-list">`;
+                        csvDataForDownload.uniqueToCol1.forEach(entry => {
+                            differencesHtml += `<li>${escapeCsvValue(entry)}</li>`; 
+                        });
+                        differencesHtml += `</ul></div>`;
+                        discrepanciesFound = true;
+                    }
+
+                    if (csvDataForDownload.uniqueToCol2.length > 0) {
+                        differencesHtml += `<div class="result-section">`;
+                        differencesHtml += `<h3 class="result-heading">Entries found ONLY in Column '${displayCol2Name}'</h3>`;
+                        differencesHtml += `<ul class="result-list">`;
+                        csvDataForDownload.uniqueToCol2.forEach(entry => {
+                            differencesHtml += `<li>${escapeCsvValue(entry)}</li>`;
+                        });
+                        differencesHtml += `</ul></div>`;
+                        discrepanciesFound = true;
+                    }
+
+                    if (discrepanciesFound) {
+                        resultsDisplayArea.innerHTML = differencesHtml; 
+                        showMessage(`Comparison complete. Discrepancies found. (Comparison was case-insensitive)`, 'info');
+                        downloadCsvButton.classList.remove('hidden');
+                    } else { 
+                        resultsDisplayArea.innerHTML = `<p class="text-center text-green-600 p-4">--- No Differences ---<br>Both columns contain the same set of non-empty entries (case-insensitive).</p>`;
+                        showMessage('Comparison complete. No differences found (case-insensitive).', 'success');
+                        downloadCsvButton.classList.add('hidden'); 
+                    }
+                    resultsContainer.classList.remove('hidden'); 
+
+                } catch (error) {
+                    console.error("Error during CSV processing or comparison:", error);
+                    showMessage(`An unexpected error occurred: ${error.message}. Check console for details.`, 'error');
+                }
+            };
+
+            reader.onerror = function() {
+                showMessage('Error reading the file.', 'error');
+                console.error("FileReader error:", reader.error);
+            };
+
+            reader.readAsText(file); 
+        }
+
+    </script>
+</body>
+</html>
